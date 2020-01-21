@@ -2,7 +2,7 @@
 //
 // @author Craig Branscom
 // @contract amend
-// @version v0.1.0
+// @version v2.0.0
 
 // approved treasuries: VOTE
 
