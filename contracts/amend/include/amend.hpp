@@ -40,13 +40,16 @@ CONTRACT amend : public contract {
     //set a fee amount
     ACTION setfee(name fee_name, asset fee_amount);
 
+    //set new thresholds
+    ACTION setthresh(double new_quorum_threshold, double new_yes_threshold);
+
     //======================== document actions ========================
 
     //create a new document
     ACTION newdocument(string title, string subtitle, name document_name, name author, map<name, string> initial_sections);
 
     //edit document title and subtitle
-    ACTION editdocinfo(name document_name, string new_title, string new_subtitle);
+    ACTION editheader(name document_name, string new_title, string new_subtitle);
 
     //update document author
     ACTION updateauthor(name document_name, name new_author);
@@ -110,10 +113,15 @@ CONTRACT amend : public contract {
         string app_name;
         string app_version;
         name admin;
+        asset deposits;
         map<name, asset> fees; // fee_name => fee_amount
-        // vector<symbol> approved_treasuries;
+        double quorum_threshold; //percent of votes to pass quorum
+        double yes_threshold; //percent of yes votes to approve
 
-        EOSLIB_SERIALIZE(config, (app_name)(app_version)(admin)(fees))
+        //TODO?: vector<symbol> approved_treasuries;
+
+        EOSLIB_SERIALIZE(config, (app_name)(app_version)(admin)(deposits)(fees)
+            (quorum_threshold)(yes_threshold))
     };
     typedef singleton<name("config"), config> config_singleton;
 
@@ -190,5 +198,33 @@ CONTRACT amend : public contract {
         EOSLIB_SERIALIZE(account, (balance))
     };
     typedef multi_index<name("accounts"), account> accounts_table;
+
+    //telos decide treasury
+    // TODO: import from decide
+    struct treasury {
+        asset supply;
+        asset max_supply;
+        name access;
+        name manager;
+        string title;
+        string description;
+        string icon;
+        uint32_t voters;
+        uint32_t delegates;
+        uint32_t committees;
+        uint32_t open_ballots;
+        bool locked;
+        name unlock_acct;
+        name unlock_auth;
+        map<name, bool> settings;
+
+        uint64_t primary_key() const { return supply.symbol.code().raw(); }
+        EOSLIB_SERIALIZE(treasury, 
+            (supply)(max_supply)(access)(manager)
+            (title)(description)(icon)
+            (voters)(delegates)(committees)(open_ballots)
+            (locked)(unlock_acct)(unlock_auth)(settings))
+    };
+    typedef multi_index<name("treasuries"), treasury> treasuries_table;
 
 };

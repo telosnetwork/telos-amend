@@ -15,15 +15,21 @@ ACTION amend::init(string app_name, string app_version, name initial_admin) {
     check(is_account(initial_admin), "initial admin account doesn't exist");
     
     //initialize
+    asset initial_deposits = asset(0, TLOS_SYM);
     map<name, asset> initial_fees;
     initial_fees["newdoc"_n] = asset(500000, TLOS_SYM); //50 TLOS
     initial_fees["newproposal"_n] = asset(100000, TLOS_SYM); //10 TLOS
+    double quorum_threshold = 5.0;
+    double yes_threshold = 66.67;
 
     config initial_conf = {
         app_name, //app_name
         app_version, //app_version
         initial_admin, //admin
-        initial_fees //fees
+        initial_deposits, //deposits
+        initial_fees, //fees
+        quorum_threshold, //quorum_threshold
+        yes_threshold //yes_threshold
     };
 
     //set new config
@@ -86,6 +92,24 @@ ACTION amend::setfee(name fee_name, asset fee_amount) {
 
 }
 
+ACTION amend::setthresh(double new_quorum_threshold, double new_yes_threshold) {
+
+    //open configs singleton, get config
+    config_singleton configs(get_self(), get_self().value);
+    auto conf = configs.get();
+
+    //authenticate
+    require_auth(conf.admin);
+
+    //change thresholds
+    conf.quorum_threshold = new_quorum_threshold;
+    conf.yes_threshold = new_yes_threshold;
+
+    //set new config
+    configs.set(conf, get_self());
+
+}
+
 //======================== document actions ========================
 
 ACTION amend::newdocument(string title, string subtitle, name document_name, name author, map<name, string> initial_sections) {
@@ -105,7 +129,7 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
     check(doc == documents.end(), "document name already exists");
 
     //charge fee
-    // require_fee(author, conf.fees.at("newdoc"));
+    require_fee(author, conf.fees.at("newdoc"_n));
 
     //emplace new document
     documents.emplace(author, [&](auto& col) {
@@ -148,7 +172,7 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
 
 }
 
-ACTION amend::editdocinfo(name document_name, string new_title, string new_subtitle) {
+ACTION amend::editheader(name document_name, string new_title, string new_subtitle) {
 
     //open documents table, get document
     documents_table documents(get_self(), get_self().value);
@@ -272,10 +296,11 @@ ACTION amend::draftprop(string title, string subtitle, name ballot_name, name pr
     //validate
     check(prop_itr == proposals.end(), "proposal ballot already exists");
 
-    //TODO: charge fee
-
     //initialize
     map<name, asset> blank_results;
+    blank_results["yes"_n] = asset(0, VOTE_SYM);
+    blank_results["no"_n] = asset(0, VOTE_SYM);
+    blank_results["abstain"_n] = asset(0, VOTE_SYM);
     
     //emplace new proposal
     proposals.emplace(proposer, [&](auto& col) {
@@ -290,30 +315,6 @@ ACTION amend::draftprop(string title, string subtitle, name ballot_name, name pr
         col.new_content = new_content;
     });
 
-    //TODO: inline transfer from self to trailservice (to cover newballot fee)
-
-    //initialize
-    vector<name> initial_options = { "yes"_n, "no"_n, "abstain"_n };
-    string ballot_content = "Telos Amend Proposal";
-
-    //inline to newballot
-    action(permission_level{get_self(), name("active")}, name("trailservice"), name("newballot"), make_tuple(
-        ballot_name, //ballot_name
-        name("proposal"), //category
-        get_self(), //publisher
-        VOTE_SYM, //treasury_symbol
-        name("1token1vote"), //voting_method
-        initial_options //initial_options
-    )).send();
-
-    //inline to editdetails
-    action(permission_level{get_self(), name("active")}, name("trailservice"), name("editdetails"), make_tuple(
-        ballot_name, //ballot_name
-        title, //title
-        subtitle, //description
-        ballot_content //content
-    )).send();
-
 }
 
 ACTION amend::launchprop(name ballot_name) {
@@ -326,8 +327,19 @@ ACTION amend::launchprop(name ballot_name) {
     documents_table documents(get_self(), get_self().value);
     auto& doc = documents.get(prop.document_name.value, "document not found");
 
+    //open config singleton, get config
+    config_singleton configs(get_self(), get_self().value);
+    auto conf = configs.get();
+
     //authenticate
     require_auth(prop.proposer);
+
+    //initialize
+    vector<name> initial_options = { "yes"_n, "no"_n, "abstain"_n };
+    string ballot_content = "Telos Amend Proposal";
+    time_point_sec now = time_point_sec(current_time_point());
+    uint32_t month_sec = 2505600; //2505600 = 29 days in seconds
+    asset proposal_fee = conf.fees.at("newproposal"_n);
 
     //validate
     check(prop.status == "drafting"_n, "proposal must be in drafting mode to launch");
@@ -342,12 +354,43 @@ ACTION amend::launchprop(name ballot_name) {
         col.open_proposals += 1;
     });
 
-    //initialize
-    time_point_sec now = time_point_sec(current_time_point());
-    uint32_t month_sec = 180; //2505600 = 29 days in seconds
+    //charge fee
+    require_fee(prop.proposer, proposal_fee);
+
+    //inline transfer from self to telos decide (to cover decide newballot fee, paid for by amend proposal fee)
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("newballot"), make_tuple(
+        get_self(), //from
+        name("telos.decide"), //to
+        proposal_fee, //quantity
+        "Telos Decide Ballot Fee" //memo
+    )).send();
+
+    //inline to newballot
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("newballot"), make_tuple(
+        ballot_name, //ballot_name
+        name("proposal"), //category
+        get_self(), //publisher
+        VOTE_SYM, //treasury_symbol
+        name("1token1vote"), //voting_method
+        initial_options //initial_options
+    )).send();
+
+    //inline to editdetails
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("editdetails"), make_tuple(
+        ballot_name, //ballot_name
+        prop.title, //title
+        prop.subtitle, //description
+        ballot_content //content
+    )).send();
+
+    //send inline togglebal
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("togglebal"), make_tuple(
+        ballot_name, //ballot_name
+        name("votestake") //setting_name
+    )).send();
 
     //send inline openvoting
-    action(permission_level{get_self(), name("active")}, name("trailservice"), name("openvoting"), make_tuple(
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("openvoting"), make_tuple(
         ballot_name, //ballot_name
         now + month_sec //end_time
     )).send();
@@ -378,7 +421,7 @@ ACTION amend::endprop(name ballot_name) {
     //NOTE: ballot results processing happens in catch_broadcast()
 
     //send inline closevoting
-    action(permission_level{get_self(), name("active")}, name("trailservice"), name("closevoting"), make_tuple(
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("closevoting"), make_tuple(
         ballot_name, //ballot_name
         true //broadcast
     )).send();
@@ -480,7 +523,7 @@ ACTION amend::cancelprop(name ballot_name, string memo) {
     });
 
     //inline to cancelballot
-    action(permission_level{get_self(), name("active")}, name("trailservice"), name("cancelballot"), make_tuple(
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("cancelballot"), make_tuple(
         ballot_name, //ballot_name
         memo //memo
     )).send();
@@ -503,7 +546,7 @@ ACTION amend::deleteprop(name ballot_name) {
     proposals.erase(prop);
 
     //inline to deleteballot
-    action(permission_level{get_self(), name("active")}, name("trailservice"), name("deleteballot"), make_tuple(
+    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("deleteballot"), make_tuple(
         ballot_name //ballot_name
     )).send();
 
@@ -520,10 +563,24 @@ ACTION amend::withdraw(name account_name, asset quantity) {
     accounts_table accounts(get_self(), account_name.value);
     auto& acct = accounts.get(quantity.symbol.code().raw(), "account not found");
 
+    //open config singleton, get config
+    config_singleton configs(get_self(), get_self().value);
+    auto conf = configs.get();
+
     //validate
     check(quantity.symbol == TLOS_SYM, "must withdraw TLOS");
     check(quantity.amount > 0, "must withdraw positive amount");
-    check(quantity.amount <= acct.balance.amount, "insufficient funds");
+    check(quantity.amount <= acct.balance.amount, "insufficient account funds");
+    check(conf.deposits.amount >= quantity.amount, "insufficient contract funds");
+
+    //update account balance
+    accounts.modify(acct, same_payer, [&](auto& col) {
+        col.balance -= quantity;
+    });
+
+    //update config deposits
+    conf.deposits -= quantity;
+    configs.set(conf, get_self());
 
     //inline transfer
     action(permission_level{get_self(), name("active")}, name("eosio.token"), name("transfer"), make_tuple(
@@ -572,6 +629,14 @@ void amend::catch_transfer(name from, name to, asset quantity, string memo) {
 
         }
 
+        //open config singleton, get config
+        config_singleton configs(get_self(), get_self().value);
+        auto conf = configs.get();
+
+        //update config
+        conf.deposits += quantity;
+        configs.set(conf, get_self());
+
     }
 
 }
@@ -584,27 +649,34 @@ void amend::catch_broadcast(name ballot_name, map<name, asset> final_results, ui
 
     if (prop_itr != proposals.end()) {
 
+        //open config singleton, get config
+        config_singleton configs(get_self(), get_self().value);
+        auto conf = configs.get();
+
+        //open telos decide treasury table, get treasury
+        treasuries_table treasuries(name("telos.decide"), name("telos.decide").value);
+        auto& trs = treasuries.get(VOTE_SYM.code().raw(), "treasury not found");
+
+        //calculate
+        asset total_votes = final_results["yes"_n] + final_results["no"_n] + final_results["abstain"_n];
+        asset non_abstain_votes = final_results["yes"_n] + final_results["no"_n];
+        asset quorum_thresh = trs.supply * conf.quorum_threshold / 100;
+        asset pass_thresh = non_abstain_votes * conf.yes_threshold / 100;
+
         //initialize
-        asset most_votes = asset(0, VOTE_SYM);
-        name winner = name(0);
         name new_status = name(0);
 
-        //TODO: handle ties, and no-vote ballots
+        //determine approval and refund
+        if (total_votes >= quorum_thresh && final_results["yes"_n] >= pass_thresh) {
 
-        for (auto res_itr = final_results.begin(); res_itr != final_results.end(); res_itr++) {
-            
-            if (final_results[res_itr->first] > most_votes) {
-                most_votes = res_itr->second;
-                winner = res_itr->first;
-            }
-
-        }
-
-        //TODO: quorum check
-        if (winner == "yes"_n) {
+            //passed
             new_status = name("passed");
+
         } else {
+
+            //failed
             new_status = name("failed");
+
         }
 
         //update proposal
@@ -625,12 +697,21 @@ void amend::require_fee(name account_name, asset fee) {
     accounts_table accounts(get_self(), account_name.value);
     auto& acct = accounts.get(TLOS_SYM.code().raw(), "require_fee: account not found");
 
+    //open config singleton
+    config_singleton configs(get_self(), get_self().value);
+    auto conf = configs.get();
+
     //validate
-    check(acct.balance >= fee, "insufficient funds");
+    check(acct.balance >= fee, "insufficient account funds");
+    check(conf.deposits >= fee, "insufficient contract funds");
 
     //charge fee
     accounts.modify(acct, same_payer, [&](auto& col) {
         col.balance -= fee;
     });
+
+    //update deposits
+    conf.deposits -= fee;
+    configs.set(conf, get_self());
 
 }
