@@ -358,11 +358,11 @@ ACTION amend::launchprop(name ballot_name) {
     require_fee(prop.proposer, proposal_fee);
 
     //inline transfer from self to telos decide (to cover decide newballot fee, paid for by amend proposal fee)
-    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("newballot"), make_tuple(
+    action(permission_level{get_self(), name("active")}, name("eosio.token"), name("transfer"), make_tuple(
         get_self(), //from
         name("telos.decide"), //to
         proposal_fee, //quantity
-        "Telos Decide Ballot Fee" //memo
+        string("Telos Decide Ballot Fee") //memo
     )).send();
 
     //inline to newballot
@@ -439,13 +439,14 @@ ACTION amend::amendprop(name ballot_name, name amender) {
     auto& doc = documents.get(prop.document_name.value, "document not found");
 
     //authenticate
-    require_auth(amender); //TODO?: executable by only author? only by proposer?
+    require_auth(amender); //TODO?: executable only by author? only by proposer?
 
     //validate
     check(prop.status == name("passed"), "proposal must have passed to amend document");
 
     //intialize
     auto now = time_point_sec(current_time_point());
+    uint16_t new_section_count = 0;
 
     for (auto itr = prop.new_content.begin(); itr != prop.new_content.end(); itr++) {
 
@@ -457,7 +458,10 @@ ACTION amend::amendprop(name ballot_name, name amender) {
 
             //TODO: calculate actual section number
 
-            //emplace new section, ram paid by author
+            //increase section count
+            new_section_count += 1;
+
+            //emplace new section, ram paid by amender
             sections.emplace(amender, [&](auto& col) {
                 col.section_name = itr->first;
                 col.section_number = 0;
@@ -468,8 +472,8 @@ ACTION amend::amendprop(name ballot_name, name amender) {
 
         } else {
 
-            //update existing section
-            sections.modify(*sec_itr, same_payer, [&](auto& col) {
+            //update existing section, ram paid by amender
+            sections.modify(*sec_itr, amender, [&](auto& col) {
                 col.content = itr->second;
                 col.last_amended = now;
                 col.amended_by = amender;
@@ -481,6 +485,7 @@ ACTION amend::amendprop(name ballot_name, name amender) {
 
     //update document amendments counter
     documents.modify(doc, same_payer, [&](auto& col) {
+        col.sections += new_section_count;
         col.amendments += 1;
     });
 
@@ -505,17 +510,12 @@ ACTION amend::cancelprop(name ballot_name, string memo) {
     require_auth(prop.proposer);
 
     //validate
-    check(prop.status == "voting"_n, "proposal must be drafting or voting to cancel");
+    check(prop.status == "voting"_n, "proposal must be voting to cancel");
 
-    //update counter if proposal was open
-    if (prop.status == name("voting")) {
-
-        //update document open proposals counter
-        documents.modify(doc, same_payer, [&](auto& col) {
-            col.open_proposals -= 1;
-        });
-
-    }
+    //update document open proposals counter
+    documents.modify(doc, same_payer, [&](auto& col) {
+        col.open_proposals -= 1;
+    });
 
     //cancel proposal
     proposals.modify(prop, same_payer, [&](auto& col) {
@@ -540,7 +540,7 @@ ACTION amend::deleteprop(name ballot_name) {
     require_auth(prop.proposer);
 
     //validate
-    check(prop.status != name("voting"), "proposal status must be passed, failed, amended, or cancelled to delete");
+    check(prop.status != name("voting"), "cannot delete a proposal during voting. cancel first.");
 
     //erase proposal
     proposals.erase(prop);
