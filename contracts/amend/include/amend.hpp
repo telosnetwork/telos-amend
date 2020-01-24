@@ -96,8 +96,8 @@ CONTRACT amend : public contract {
     [[eosio::on_notify("eosio.token::transfer")]]
     void catch_transfer(name from, name to, asset quantity, string memo);
 
-    //catch broadcast notification from trail
-    [[eosio::on_notify("trailservice::broadcast")]]
+    //catch broadcast notification from telos.decide
+    [[eosio::on_notify("telos.decide::broadcast")]]
     void catch_broadcast(name ballot_name, map<name, asset> final_results, uint32_t total_voters);
 
     //======================== functions ========================

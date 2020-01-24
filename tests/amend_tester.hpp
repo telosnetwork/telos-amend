@@ -18,6 +18,9 @@ class amend_tester : public decide_tester {
 
     const name amend_name = name("amend.decide");
     const name doc1_name = name("document1");
+    const name seca_name = name("sectiona");
+    const name secb_name = name("sectionb");
+    const name secc_name = name("sectionc");
 
     amend_tester(setup_mode mode = setup_mode::full): decide_tester(mode) {
         
@@ -97,21 +100,44 @@ class amend_tester : public decide_tester {
 
     void create_test_document() {
 
+        //get tables
+        fc::variant testa_amend_acct = get_amend_account(testa, tlos_sym);
+
+        //initialize
+        asset initial_balance = testa_amend_acct["balance"].as<asset>();
         map<name, string> sections;
-        sections[name("section1")] = "Section 1 Text";
-        sections[name("section2")] = "Section 2 Text";
-        sections[name("section3")] = "Section 3 Text";
+        sections[name("sectiona")] = "Section A Text";
+        sections[name("sectionb")] = "Section B Text";
+        sections[name("sectionc")] = "Section C Text";
 
         //create new document
         amend_newdocument("Document 1", "Test Document 1", doc1_name, testa, sections);
         produce_blocks();
 
         //get tables
-        fc::variant doc1 = get_amend_document(doc1_name);
-        fc::variant testa_amend_acct = get_amend_account(testa, tlos_sym);
+        fc::variant amend_doc1 = get_amend_document(doc1_name);
+        testa_amend_acct = get_amend_account(testa, tlos_sym);
+        fc::variant amend_sectiona = get_amend_section(doc1_name, name("sectiona"));
+        fc::variant amend_sectionb = get_amend_section(doc1_name, name("sectionb"));
+        fc::variant amend_sectionc = get_amend_section(doc1_name, name("sectionc"));
+
+        //calculate
+        asset new_balance = initial_balance - asset::from_string("50.0000 TLOS");
 
         //assert table values
-        BOOST_REQUIRE_EQUAL(testa_amend_acct["balance"].as<asset>(), asset::from_string("100.0000 TLOS"));
+        BOOST_REQUIRE_EQUAL(amend_doc1["title"], "Document 1");
+        BOOST_REQUIRE_EQUAL(amend_doc1["subtitle"], "Test Document 1");
+        BOOST_REQUIRE_EQUAL(amend_doc1["document_name"].as<name>(), doc1_name);
+        BOOST_REQUIRE_EQUAL(amend_doc1["author"].as<name>(), testa);
+        BOOST_REQUIRE_EQUAL(amend_doc1["sections"].as<uint16_t>(), 3);
+        BOOST_REQUIRE_EQUAL(amend_doc1["open_proposals"].as<uint16_t>(), 0);
+        BOOST_REQUIRE_EQUAL(amend_doc1["amendments"].as<uint16_t>(), 0);
+        
+        BOOST_REQUIRE_EQUAL(amend_sectiona["section_number"].as<uint64_t>(), 1);
+        BOOST_REQUIRE_EQUAL(amend_sectionb["section_number"].as<uint64_t>(), 2);
+        BOOST_REQUIRE_EQUAL(amend_sectionc["section_number"].as<uint64_t>(), 3);
+
+        BOOST_REQUIRE_EQUAL(testa_amend_acct["balance"].as<asset>(), new_balance);
 
     }
 
@@ -241,6 +267,35 @@ class amend_tester : public decide_tester {
 
 
 
+    transaction_trace_ptr amend_reorder(name doc_name, map<name, uint64_t> new_order, name author) {
+        signed_transaction trx;
+        vector<permission_level> permissions { { author, name("active") } };
+        trx.actions.emplace_back(get_action(amend_name, name("reorder"), permissions, 
+            mvo()
+                ("document_name", doc_name)
+                ("new_order", new_order)
+        ));
+        set_transaction_headers( trx );
+        trx.sign(get_private_key(author, "active"), control->get_chain_id());
+        return push_transaction( trx );
+    }
+
+    transaction_trace_ptr amend_delsection(name doc_name, name section_name, string memo, name author) {
+        signed_transaction trx;
+        vector<permission_level> permissions { { author, name("active") } };
+        trx.actions.emplace_back(get_action(amend_name, name("delsection"), permissions, 
+            mvo()
+                ("document_name", doc_name)
+                ("section_name", section_name)
+                ("memo", memo)
+        ));
+        set_transaction_headers( trx );
+        trx.sign(get_private_key(author, "active"), control->get_chain_id());
+        return push_transaction( trx );
+    }
+
+
+
     transaction_trace_ptr amend_draftprop(string title, string subtitle, name ballot_name, 
         name proposer, name document_name, map<name, string> new_content) {
         signed_transaction trx;
@@ -259,12 +314,12 @@ class amend_tester : public decide_tester {
         return push_transaction( trx );
     }
 
-    transaction_trace_ptr amend_launchprop(name proposal_name, name proposer) {
+    transaction_trace_ptr amend_launchprop(name ballot_name, name proposer) {
         signed_transaction trx;
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("launchprop"), permissions, 
             mvo()
-                ("proposal_name", proposal_name)
+                ("ballot_name", ballot_name)
         ));
         set_transaction_headers( trx );
         trx.sign(get_private_key(proposer, "active"), control->get_chain_id());
@@ -276,7 +331,7 @@ class amend_tester : public decide_tester {
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("endprop"), permissions, 
             mvo()
-                ("proposal_name", proposal_name)
+                ("ballot_name", proposal_name)
         ));
         set_transaction_headers( trx );
         trx.sign(get_private_key(proposer, "active"), control->get_chain_id());
@@ -288,7 +343,7 @@ class amend_tester : public decide_tester {
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("cancelprop"), permissions, 
             mvo()
-                ("proposal_name", proposal_name)
+                ("ballot_name", proposal_name)
                 ("memo", memo)
         ));
         set_transaction_headers( trx );
@@ -301,7 +356,7 @@ class amend_tester : public decide_tester {
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("deleteprop"), permissions, 
             mvo()
-                ("proposal_name", proposal_name)
+                ("ballot_name", proposal_name)
         ));
         set_transaction_headers( trx );
         trx.sign(get_private_key(proposer, "active"), control->get_chain_id());

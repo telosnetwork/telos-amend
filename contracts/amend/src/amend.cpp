@@ -358,7 +358,7 @@ ACTION amend::launchprop(name ballot_name) {
     require_fee(prop.proposer, proposal_fee);
 
     //inline transfer from self to telos decide (to cover decide newballot fee, paid for by amend proposal fee)
-    action(permission_level{get_self(), name("active")}, name("telos.decide"), name("newballot"), make_tuple(
+    action(permission_level{get_self(), name("active")}, name("eosio.token"), name("transfer"), make_tuple(
         get_self(), //from
         name("telos.decide"), //to
         proposal_fee, //quantity
@@ -505,7 +505,7 @@ ACTION amend::cancelprop(name ballot_name, string memo) {
     require_auth(prop.proposer);
 
     //validate
-    check(prop.status == "voting"_n, "proposal must be drafting or voting to cancel");
+    check(prop.status == "voting"_n, "proposal must be voting to cancel");
 
     //update counter if proposal was open
     if (prop.status == name("voting")) {
@@ -540,7 +540,7 @@ ACTION amend::deleteprop(name ballot_name) {
     require_auth(prop.proposer);
 
     //validate
-    check(prop.status != name("voting"), "proposal status must be passed, failed, amended, or cancelled to delete");
+    check(prop.status != name("voting"), "cannot delete a proposal during voting. cancel first.");
 
     //erase proposal
     proposals.erase(prop);
