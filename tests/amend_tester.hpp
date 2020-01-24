@@ -326,24 +326,37 @@ class amend_tester : public decide_tester {
         return push_transaction( trx );
     }
 
-    transaction_trace_ptr amend_endprop(name proposal_name, name proposer) {
+    transaction_trace_ptr amend_endprop(name ballot_name, name proposer) {
         signed_transaction trx;
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("endprop"), permissions, 
             mvo()
-                ("ballot_name", proposal_name)
+                ("ballot_name", ballot_name)
         ));
         set_transaction_headers( trx );
         trx.sign(get_private_key(proposer, "active"), control->get_chain_id());
         return push_transaction( trx );
     }
 
-    transaction_trace_ptr amend_cancelprop(name proposal_name, string memo, name proposer) {
+    transaction_trace_ptr amend_amendprop(name ballot_name, name amender_name) {
+        signed_transaction trx;
+        vector<permission_level> permissions { { amender_name, name("active") } };
+        trx.actions.emplace_back(get_action(amend_name, name("amendprop"), permissions, 
+            mvo()
+                ("ballot_name", ballot_name)
+                ("amender", amender_name)
+        ));
+        set_transaction_headers( trx );
+        trx.sign(get_private_key(amender_name, "active"), control->get_chain_id());
+        return push_transaction( trx );
+    }
+
+    transaction_trace_ptr amend_cancelprop(name ballot_name, string memo, name proposer) {
         signed_transaction trx;
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("cancelprop"), permissions, 
             mvo()
-                ("ballot_name", proposal_name)
+                ("ballot_name", ballot_name)
                 ("memo", memo)
         ));
         set_transaction_headers( trx );
@@ -351,12 +364,12 @@ class amend_tester : public decide_tester {
         return push_transaction( trx );
     }
 
-    transaction_trace_ptr amend_deleteprop(name proposal_name, name proposer) {
+    transaction_trace_ptr amend_deleteprop(name ballot_name, name proposer) {
         signed_transaction trx;
         vector<permission_level> permissions { { proposer, name("active") } };
         trx.actions.emplace_back(get_action(amend_name, name("deleteprop"), permissions, 
             mvo()
-                ("ballot_name", proposal_name)
+                ("ballot_name", ballot_name)
         ));
         set_transaction_headers( trx );
         trx.sign(get_private_key(proposer, "active"), control->get_chain_id());
