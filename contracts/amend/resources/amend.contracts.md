@@ -42,6 +42,17 @@ icon: https://github.com/Telos-Foundation/images/raw/master/ricardian_assets/eos
 
 Update or insert the {{fee_name}} fee amount to {{fee_amount}}.
 
+<h1 class="contract">setthresh</h1>
+
+---
+spec_version: "0.2.0"
+title: Set Thresholds
+summary: 'Set new thresholds'
+icon: https://github.com/Telos-Foundation/images/raw/master/ricardian_assets/eosio.contracts/icons/account.png#3d55a2fc3a5c20b456f5657faf666bc25ffd06f4836c5e8256f741149b0b294f
+---
+
+Set the new quorum threhsold to {{new_quorum_threshold}} and the yes threshold to {{new_yes_threshold}}.
+
 <h1 class="contract">newdocument</h1>
 
 ---
@@ -53,11 +64,11 @@ icon: https://github.com/Telos-Foundation/images/raw/master/ricardian_assets/eos
 
 Create a new document.
 
-<h1 class="contract">editdocinfo</h1>
+<h1 class="contract">editheader</h1>
 
 ---
 spec_version: "0.2.0"
-title: Edit Document Info
+title: Edit Document Header
 summary: 'Edit Title and Subtitle'
 icon: https://github.com/Telos-Foundation/images/raw/master/ricardian_assets/eosio.contracts/icons/account.png#3d55a2fc3a5c20b456f5657faf666bc25ffd06f4836c5e8256f741149b0b294f
 ---
