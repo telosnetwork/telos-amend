@@ -132,7 +132,8 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
     require_fee(author, conf.fees.at("newdoc"_n));
 
     //emplace new document
-    documents.emplace(author, [&](auto& col) {
+    //ram payer: contract
+    documents.emplace(get_self(), [&](auto& col) {
         col.title = title;
         col.subtitle = subtitle;
         col.document_name = document_name;
@@ -160,7 +161,8 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
         sec_order += 1;
 
         //emplace new section
-        sections.emplace(author, [&](auto& col) {
+        //ram payer: contract
+        sections.emplace(get_self(), [&](auto& col) {
             col.section_name = itr->first;
             col.section_number = sec_order;
             col.content = itr->second;
@@ -182,6 +184,7 @@ ACTION amend::editheader(name document_name, string new_title, string new_subtit
     require_auth(doc.author);
 
     //modify document title and subtitle
+    //ram payer: contract
     documents.modify(doc, same_payer, [&](auto& col) {
         col.title = new_title;
         col.subtitle = new_subtitle;
@@ -202,6 +205,7 @@ ACTION amend::updateauthor(name document_name, name new_author) {
     check(is_account(new_author), "new author account doesn't exist");
 
     //modify document author
+    //ram payer: contract
     documents.modify(doc, same_payer, [&](auto& col) {
         col.author = new_author;
     });
@@ -243,6 +247,7 @@ ACTION amend::reorder(name document_name, map<name, uint64_t> new_order) {
         auto& sec = sections.get(itr->first.value, "section not found");
 
         //modify section
+        //ram payer: contract
         sections.modify(sec, same_payer, [&](auto& col) {
             col.section_number = itr->second;
         });
@@ -272,6 +277,7 @@ ACTION amend::delsection(name document_name, name section_name, string memo) {
     sections.erase(sec);
 
     //update document sections counter
+    //ram payer: contract
     documents.modify(doc, same_payer, [&](auto& col) {
         col.sections -= 1;
     });
@@ -303,7 +309,8 @@ ACTION amend::draftprop(string title, string subtitle, name ballot_name, name pr
     blank_results["abstain"_n] = asset(0, VOTE_SYM);
     
     //emplace new proposal
-    proposals.emplace(proposer, [&](auto& col) {
+    //ram payer: contract
+    proposals.emplace(get_self(), [&](auto& col) {
         col.title = title;
         col.subtitle = subtitle;
         col.ballot_name = ballot_name;
@@ -345,11 +352,13 @@ ACTION amend::launchprop(name ballot_name) {
     check(prop.status == "drafting"_n, "proposal must be in drafting mode to launch");
 
     //update proposal status
+    //ram payer: contract
     proposals.modify(prop, same_payer, [&](auto& col) {
         col.status = name("voting");
     });
 
     //update document open proposals counter
+    //ram payer: contract
     documents.modify(doc, same_payer, [&](auto& col) {
         col.open_proposals += 1;
     });
@@ -461,8 +470,9 @@ ACTION amend::amendprop(name ballot_name, name amender) {
             //increase section count
             new_section_count += 1;
 
-            //emplace new section, ram paid by amender
-            sections.emplace(amender, [&](auto& col) {
+            //emplace new section
+            //ram payer: contract
+            sections.emplace(get_self(), [&](auto& col) {
                 col.section_name = itr->first;
                 col.section_number = 0;
                 col.content = itr->second;
@@ -472,8 +482,9 @@ ACTION amend::amendprop(name ballot_name, name amender) {
 
         } else {
 
-            //update existing section, ram paid by amender
-            sections.modify(*sec_itr, amender, [&](auto& col) {
+            //update existing section
+            //ram_payer: contract
+            sections.modify(*sec_itr, same_payer, [&](auto& col) {
                 col.content = itr->second;
                 col.last_amended = now;
                 col.amended_by = amender;
@@ -484,12 +495,14 @@ ACTION amend::amendprop(name ballot_name, name amender) {
     }
 
     //update document amendments counter
+    //ram payer: contract
     documents.modify(doc, same_payer, [&](auto& col) {
         col.sections += new_section_count;
         col.amendments += 1;
     });
 
     //update proposal status to amended
+    //ram payer: contract
     proposals.modify(prop, same_payer, [&](auto& col) {
         col.status = name("amended");
     });
@@ -513,11 +526,13 @@ ACTION amend::cancelprop(name ballot_name, string memo) {
     check(prop.status == "voting"_n, "proposal must be voting to cancel");
 
     //update document open proposals counter
+    //ram payer: contract
     documents.modify(doc, same_payer, [&](auto& col) {
         col.open_proposals -= 1;
     });
 
     //cancel proposal
+    //ram payer: contract
     proposals.modify(prop, same_payer, [&](auto& col) {
         col.status = name("cancelled");
     });
@@ -574,6 +589,7 @@ ACTION amend::withdraw(name account_name, asset quantity) {
     check(conf.deposits.amount >= quantity.amount, "insufficient contract funds");
 
     //update account balance
+    //ram payer: contract
     accounts.modify(acct, same_payer, [&](auto& col) {
         col.balance -= quantity;
     });
@@ -616,6 +632,7 @@ void amend::catch_transfer(name from, name to, asset quantity, string memo) {
         if (acct == accounts.end()) {
 
             //make new account
+            //ram payer: contract
             accounts.emplace(get_self(), [&](auto& col) {
                 col.balance = quantity;
             });
@@ -623,6 +640,7 @@ void amend::catch_transfer(name from, name to, asset quantity, string memo) {
         } else {
 
             //update existing account
+            //ram payer: contract
             accounts.modify(*acct, same_payer, [&](auto& col) {
                 col.balance += quantity;
             });
@@ -680,6 +698,7 @@ void amend::catch_broadcast(name ballot_name, map<name, asset> final_results, ui
         }
 
         //update proposal
+        //ram payer: contract
         proposals.modify(*prop_itr, same_payer, [&](auto& col) {
             col.ballot_results = final_results;
             col.status = new_status;
@@ -706,6 +725,7 @@ void amend::require_fee(name account_name, asset fee) {
     check(conf.deposits >= fee, "insufficient contract funds");
 
     //charge fee
+    //ram payer: contract
     accounts.modify(acct, same_payer, [&](auto& col) {
         col.balance -= fee;
     });
