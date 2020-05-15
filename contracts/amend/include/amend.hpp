@@ -2,10 +2,9 @@
 //
 // @author Craig Branscom
 // @contract amend
-// @version v2.0.0
+// @version v2.0.1
 
 // approved treasuries: VOTE
-
 // proposal statuses: drafting, voting, passed, failed, cancelled, amended
 
 #include <eosio/eosio.hpp>
@@ -29,65 +28,83 @@ CONTRACT amend : public contract {
     //======================== admin actions ========================
 
     //initialize contract
+    //auth: self
     ACTION init(string app_name, string app_version, name initial_admin);
 
     //set app version
+    //auth: admin
     ACTION setversion(string new_version);
 
     //set admin
+    //auth: admin
     ACTION setadmin(name new_admin);
 
     //set a fee amount
+    //auth: admin
     ACTION setfee(name fee_name, asset fee_amount);
 
     //set new thresholds
+    //auth: admin
     ACTION setthresh(double new_quorum_threshold, double new_yes_threshold);
 
     //======================== document actions ========================
 
     //create a new document
+    //auth: author
     ACTION newdocument(string title, string subtitle, name document_name, name author, map<name, string> initial_sections);
 
     //edit document title and subtitle
+    //auth: author
     ACTION editheader(name document_name, string new_title, string new_subtitle);
 
     //update document author
+    //auth: author
     ACTION updateauthor(name document_name, name new_author);
 
     //delete a document
+    //auth: author
     ACTION deldocument(name document_name, string memo);
 
     //======================== section actions ========================
 
     //reorder document section(s)
+    //auth: author
     ACTION reorder(name document_name, map<name, uint64_t> new_order);
 
     //delete a section
+    //auth: author
     ACTION delsection(name document_name, name section_name, string memo);
 
     //======================== proposal actions ========================
 
     //draft a new proposal
+    //auth: proposer
     ACTION draftprop(string title, string subtitle, name ballot_name, name proposer, name document_name, map<name, string> new_content);
 
     //launch a proposal
+    //auth: proposer
     ACTION launchprop(name ballot_name);
 
     //end a proposal after a complete vote
+    //auth: proposer
     ACTION endprop(name ballot_name);
 
     //update or add document section(s) from a proposal ballot
+    //auth: none
     ACTION amendprop(name ballot_name, name amender);
 
     //cancel a proposal
+    //auth: proposer
     ACTION cancelprop(name ballot_name, string memo);
 
     //delete a proposal
+    //auth: proposer
     ACTION deleteprop(name ballot_name);
 
     //======================== account actions ========================
 
     //withdraw to eosio.token account
+    //auth: account owner
     ACTION withdraw(name account_name, asset quantity);
 
     //======================== notification handlers ========================
