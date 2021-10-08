@@ -156,9 +156,6 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
         //validate
         check(sec_itr == sections.end(), "section already exists");
 
-        //iterate
-        sec_order += 1;
-
         //emplace new section
         sections.emplace(author, [&](auto& col) {
             col.section_name = itr->first;
@@ -166,6 +163,9 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
             col.content = itr->second;
             col.last_amended = now;
             col.amended_by = author;
+            
+        //iterate
+        sec_order += 1;
         });
 
     }
