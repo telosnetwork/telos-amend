@@ -156,9 +156,6 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
         //validate
         check(sec_itr == sections.end(), "section already exists");
 
-        //iterate
-        sec_order += 1;
-
         //emplace new section
         sections.emplace(author, [&](auto& col) {
             col.section_name = itr->first;
@@ -167,6 +164,9 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
             col.last_amended = now;
             col.amended_by = author;
         });
+
+        //iterate
+        sec_order += 1;
 
     }
 
@@ -600,7 +600,7 @@ void amend::catch_transfer(name from, name to, asset quantity, string memo) {
     name rec = get_first_receiver();
 
     //validate
-    if (rec == name("eosio.token") && from != get_self() && quantity.symbol == TLOS_SYM) {
+    if (rec == name("eosio.token") && from != get_self() && to == get_self() && quantity.symbol == TLOS_SYM) {
         
         //parse memo
         //skips emplacement if memo is skip
