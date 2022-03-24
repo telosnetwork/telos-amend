@@ -338,7 +338,7 @@ ACTION amend::launchprop(name ballot_name) {
     vector<name> initial_options = { "yes"_n, "no"_n, "abstain"_n };
     string ballot_content = "Telos Amend Proposal";
     time_point_sec now = time_point_sec(current_time_point());
-    uint32_t month_sec = 2505600; //2505600 = 29 days in seconds
+    uint32_t duration_sec = 1'000'000; //1.000.000 = 2.000.000 blocks in seconds
     asset proposal_fee = conf.fees.at("newproposal"_n);
 
     //validate
@@ -392,7 +392,7 @@ ACTION amend::launchprop(name ballot_name) {
     //send inline openvoting
     action(permission_level{get_self(), name("active")}, name("telos.decide"), name("openvoting"), make_tuple(
         ballot_name, //ballot_name
-        now + month_sec //end_time
+        now + duration_sec //end_time
     )).send();
 
 }

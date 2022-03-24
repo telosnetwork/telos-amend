@@ -376,7 +376,7 @@ BOOST_AUTO_TEST_SUITE(amend_tests)
 
         //advance time
         produce_blocks();
-        produce_block(fc::days(29));
+        produce_block(fc::seconds(1'000'000));
         produce_blocks();
 
         //send endprop trx
@@ -551,7 +551,7 @@ BOOST_AUTO_TEST_SUITE(amend_tests)
 
         //advance time
         produce_blocks();
-        produce_block(fc::days(29));
+        produce_block(fc::seconds(1'000'000));
         produce_blocks();
 
         //send endprop trx
