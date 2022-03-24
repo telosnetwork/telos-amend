@@ -133,9 +133,9 @@ class amend_tester : public decide_tester {
         BOOST_REQUIRE_EQUAL(amend_doc1["open_proposals"].as<uint16_t>(), 0);
         BOOST_REQUIRE_EQUAL(amend_doc1["amendments"].as<uint16_t>(), 0);
         
-        BOOST_REQUIRE_EQUAL(amend_sectiona["section_number"].as<uint64_t>(), 1);
-        BOOST_REQUIRE_EQUAL(amend_sectionb["section_number"].as<uint64_t>(), 2);
-        BOOST_REQUIRE_EQUAL(amend_sectionc["section_number"].as<uint64_t>(), 3);
+        BOOST_REQUIRE_EQUAL(amend_sectiona["section_number"].as<uint64_t>(), 0);
+        BOOST_REQUIRE_EQUAL(amend_sectionb["section_number"].as<uint64_t>(), 1);
+        BOOST_REQUIRE_EQUAL(amend_sectionc["section_number"].as<uint64_t>(), 2);
 
         BOOST_REQUIRE_EQUAL(testa_amend_acct["balance"].as<asset>(), new_balance);
 
