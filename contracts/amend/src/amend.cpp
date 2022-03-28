@@ -156,9 +156,6 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
         //validate
         check(sec_itr == sections.end(), "section already exists");
 
-        //iterate
-        sec_order += 1;
-
         //emplace new section
         sections.emplace(author, [&](auto& col) {
             col.section_name = itr->first;
@@ -167,6 +164,9 @@ ACTION amend::newdocument(string title, string subtitle, name document_name, nam
             col.last_amended = now;
             col.amended_by = author;
         });
+
+        //iterate
+        sec_order += 1;
 
     }
 
@@ -338,7 +338,7 @@ ACTION amend::launchprop(name ballot_name) {
     vector<name> initial_options = { "yes"_n, "no"_n, "abstain"_n };
     string ballot_content = "Telos Amend Proposal";
     time_point_sec now = time_point_sec(current_time_point());
-    uint32_t month_sec = 2505600; //2505600 = 29 days in seconds
+    uint32_t duration_sec = 1'000'000; //1.000.000 = 2.000.000 blocks in seconds
     asset proposal_fee = conf.fees.at("newproposal"_n);
 
     //validate
@@ -392,7 +392,7 @@ ACTION amend::launchprop(name ballot_name) {
     //send inline openvoting
     action(permission_level{get_self(), name("active")}, name("telos.decide"), name("openvoting"), make_tuple(
         ballot_name, //ballot_name
-        now + month_sec //end_time
+        now + duration_sec //end_time
     )).send();
 
 }
@@ -600,7 +600,7 @@ void amend::catch_transfer(name from, name to, asset quantity, string memo) {
     name rec = get_first_receiver();
 
     //validate
-    if (rec == name("eosio.token") && from != get_self() && quantity.symbol == TLOS_SYM) {
+    if (rec == name("eosio.token") && from != get_self() && to == get_self() && quantity.symbol == TLOS_SYM) {
         
         //parse memo
         //skips emplacement if memo is skip

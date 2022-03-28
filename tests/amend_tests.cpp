@@ -376,7 +376,7 @@ BOOST_AUTO_TEST_SUITE(amend_tests)
 
         //advance time
         produce_blocks();
-        produce_block(fc::days(29));
+        produce_block(fc::seconds(1'000'000));
         produce_blocks();
 
         //send endprop trx
@@ -414,11 +414,11 @@ BOOST_AUTO_TEST_SUITE(amend_tests)
         validate_map(amend_results_map, name("no"), asset::from_string("0.0000 VOTE"));
         validate_map(amend_results_map, name("abstain"), asset::from_string("0.0000 VOTE"));
         
-        // BOOST_REQUIRE_EQUAL(amend_doc1_sectiona["section_number"].as<uint64_t>(), 1);
+        // BOOST_REQUIRE_EQUAL(amend_doc1_sectiona["section_number"].as<uint64_t>(), 0);
 
-        // BOOST_REQUIRE_EQUAL(amend_doc1_sectionb["section_number"].as<uint64_t>(), 2);
+        // BOOST_REQUIRE_EQUAL(amend_doc1_sectionb["section_number"].as<uint64_t>(), 1);
 
-        BOOST_REQUIRE_EQUAL(amend_doc1_sectionc["section_number"].as<uint64_t>(), 3);
+        BOOST_REQUIRE_EQUAL(amend_doc1_sectionc["section_number"].as<uint64_t>(), 2);
         BOOST_REQUIRE_EQUAL(amend_doc1_sectionc["content"], new_section_c_text);
         // BOOST_REQUIRE_EQUAL(amend_doc1_sectionc["last_amended"].as<time_point_sec>(), now);
         BOOST_REQUIRE_EQUAL(amend_doc1_sectionc["amended_by"].as<name>(), testb);
@@ -551,7 +551,7 @@ BOOST_AUTO_TEST_SUITE(amend_tests)
 
         //advance time
         produce_blocks();
-        produce_block(fc::days(29));
+        produce_block(fc::seconds(1'000'000));
         produce_blocks();
 
         //send endprop trx
